@@ -1,0 +1,119 @@
+import pygame
+import random
+
+# Initialize
+pygame.init()
+
+# Constants
+WIDTH, HEIGHT = 800, 600
+GRID_SIZE = 40
+ROWS = HEIGHT // GRID_SIZE
+COLS = WIDTH // GRID_SIZE
+WHITE = (255, 255, 255)
+GRAY = (200, 200, 200)
+BLACK = (0, 0, 0)
+ROAD_COLOR = (100, 100, 100)
+CAR_COLOR = (0, 0, 255)
+GREEN = (0, 255, 0)
+RED = (255, 0, 0)
+
+# Display
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Smart Traffic Simulator")
+clock = pygame.time.Clock()
+
+# Road map
+road_map = [[0 for _ in range(COLS)] for _ in range(ROWS)]
+for i in range(ROWS):
+    road_map[i][5] = 1  # vertical road
+for j in range(COLS):
+    road_map[7][j] = 1  # horizontal road
+
+# Classes
+class Car:
+    def __init__(self, x, y, direction="right"):
+        self.x = x
+        self.y = y
+        self.direction = direction
+        self.speed = 2
+
+    def update(self):
+        if self.direction == "right":
+            self.x += self.speed
+        elif self.direction == "down":
+            self.y += self.speed
+
+    def draw(self, surface):
+        pygame.draw.rect(surface, CAR_COLOR, (self.x, self.y, GRID_SIZE // 2, GRID_SIZE // 2))
+
+class TrafficLight:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.state = "green"
+        self.timer = 0
+        self.change_interval = 120  # 2 seconds at 60 fps
+
+    def update(self):
+        self.timer += 1
+        if self.timer >= self.change_interval:
+            self.timer = 0
+            self.state = "red" if self.state == "green" else "green"
+
+    def draw(self, surface):
+        color = GREEN if self.state == "green" else RED
+        pygame.draw.circle(surface, color, (self.x, self.y), 10)
+
+class Intersection:
+    def __init__(self, row, col):
+        self.row = row
+        self.col = col
+        self.traffic_light = TrafficLight(col * GRID_SIZE + GRID_SIZE // 2, row * GRID_SIZE + GRID_SIZE // 2)
+
+    def update(self):
+        self.traffic_light.update()
+
+    def draw(self, surface):
+        self.traffic_light.draw(surface)
+
+# Create vehicles and traffic lights
+cars = [
+    Car(0, 7 * GRID_SIZE + 10, "right"),
+    Car(5 * GRID_SIZE + 10, 0, "down"),
+]
+
+intersections = [Intersection(7, 5)]  # (row 7, col 5)
+
+# Draw functions
+def draw_grid():
+    for i in range(ROWS):
+        for j in range(COLS):
+            rect = pygame.Rect(j * GRID_SIZE, i * GRID_SIZE, GRID_SIZE, GRID_SIZE)
+            if road_map[i][j] == 1:
+                pygame.draw.rect(screen, ROAD_COLOR, rect)
+            else:
+                pygame.draw.rect(screen, WHITE, rect)
+            pygame.draw.rect(screen, GRAY, rect, 1)
+
+# Main loop
+running = True
+while running:
+    screen.fill(WHITE)
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    draw_grid()
+
+    for inter in intersections:
+        inter.update()
+        inter.draw(screen)
+
+    for car in cars:
+        car.update()
+        car.draw(screen)
+
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
