@@ -1,121 +1,214 @@
 import pygame
+import sys
 import random
-# pygame 서브모듈 초기화
-pygame.init()
 
-WIDTH, HEIGHT=800,600 #가로세로 픽셀
-GRID_SIZE=40 # 한칸의 그리드 셀 크기를 40x40 픽셀
-ROWS=HEIGHT//GRID_SIZE
-COLS=WIDTH//GRID_SIZE # 행과 열 계산: 15x20의 격자 생성
-WHITE=(255, 255, 255)
-GRAY=(200, 200, 200)
-BLACK=(0, 0, 0)
-ROAD_COLOR=(100, 100, 100) #RGB 값 정의
-CAR_COLOR = (0, 0, 255) 
+# Constants
+WIDTH, HEIGHT = 800, 600
+GRID_SIZE = 40
+ROWS = HEIGHT // GRID_SIZE
+COLS = WIDTH // GRID_SIZE
+WHITE = (255, 255, 255)
+GRAY = (200, 200, 200)
+BLACK = (0, 0, 0)
+ROAD_COLOR = (100, 100, 100)
+CAR_COLOR = (0, 0, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 
+pygame.init()
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Traffic Simulator")
+font = pygame.font.SysFont(None, 36)
+clock = pygame.time.Clock()
 
-# 디스플레이 세팅
-screen=pygame.display.set_mode((WIDTH, HEIGHT)) #설정한 크기의 창 생성, screen이라는 변수에 저장
-pygame.display.set_caption("Smart Traffic Simulator") #창 제목
+# Global State
+game_state = "menu"
+car_crashed = False
+intersections = []
+cars = []
+road_map = [[0 for _ in range(COLS)] for _ in range(ROWS)]
 
-# Clock
-clock = pygame.time.Clock() #초당 프레임
+class Button:
+    def __init__(self, text, x, y, w, h):
+        self.rect = pygame.Rect(x, y, w, h)
+        self.text = text
 
-# 길의 정의 (1 = road, 0 = empty)
-# 하나의 교차로 예시
-road_map=[[0 for _ in range(COLS)] for _ in range(ROWS)] #2차원 배열
-for i in range(ROWS):
-    road_map[i][5]=1  #6번째 열에 수직 도로
-for j in range(COLS):
-    road_map[7][j]=1  #8번째 행에 수평 도로
+    def draw(self):
+        pygame.draw.rect(screen, GRAY, self.rect)
+        txt = font.render(self.text, True, BLACK)
+        screen.blit(txt, (self.rect.x + 10, self.rect.y + 10))
 
-class Car:
-    def __init__(self, x, y, direction="right"):
-        self.x = x
-        self.y = y
-        self.direction = direction
-        self.speed = 2
-    #자동차 생성자: 기본 속도는 2px/frame
+    def is_clicked(self, pos):
+        return self.rect.collidepoint(pos)
 
-    def update(self):
-        if self.direction == "right":
-            self.x += self.speed
-        elif self.direction == "down":
-            self.y += self.speed
-    #프레임마다 X나 y 좌표 갱신해서 이동
-
-    def draw(self, surface):
-        pygame.draw.rect(surface, CAR_COLOR, (self.x, self.y, GRID_SIZE // 2, GRID_SIZE // 2))
-    #현재 좌표에 자동차를 그린다
 class TrafficLight:
     def __init__(self, x, y):
         self.x = x
         self.y = y
         self.state = "green"
         self.timer = 0
-        self.change_interval = 120  # 2 seconds at 60 fps
+        self.interval = 180
 
     def update(self):
         self.timer += 1
-        if self.timer >= self.change_interval:
+        if self.timer > self.interval:
             self.timer = 0
-            self.state = "red" if self.state == "green" else "green"
-    #타이머가 120프레임(=2초)가 되면 신호를 전환
-    def draw(self, surface):
+            self.state = "green" if self.state == "red" else "red"
+
+    def draw(self):
         color = GREEN if self.state == "green" else RED
-        pygame.draw.circle(surface, color, (self.x, self.y), 10)
-    #현재 신호 상태에 따라 원을 그린다
+        pygame.draw.circle(screen, color, (self.x, self.y), 10)
+
 class Intersection:
     def __init__(self, row, col):
         self.row = row
         self.col = col
-        self.traffic_light = TrafficLight(col * GRID_SIZE + GRID_SIZE // 2, row * GRID_SIZE + GRID_SIZE // 2)
+        self.x = col * GRID_SIZE + GRID_SIZE // 2
+        self.y = row * GRID_SIZE + GRID_SIZE // 2
+        self.light = TrafficLight(self.x, self.y)
 
     def update(self):
-        self.traffic_light.update()
+        self.light.update()
 
-    def draw(self, surface):
-        self.traffic_light.draw(surface)
+    def draw(self):
+        self.light.draw()
+        pygame.draw.rect(screen, BLACK, (self.col * GRID_SIZE, self.row * GRID_SIZE, GRID_SIZE, GRID_SIZE), 2)
 
-# 차랑 신호등 생성
-cars = [Car(0, 7 * GRID_SIZE + 10, "right"),Car(5 * GRID_SIZE + 10, 0, "down"),]
-#자동차 두 대를 수평 도로, 수직 도로에 각각 초기 위치로 배치
-intersections = [Intersection(7, 5)]  # (row 7, col 5)
-#교차점 하나 생성. (수평7, 수직5 지점)
+class Car:
+    def __init__(self, row, col, direction):
+        self.row = row
+        self.col = col
+        self.direction = direction
+        self.x = col * GRID_SIZE + 10
+        self.y = row * GRID_SIZE + 10
+        self.speed = 2
+        self.waiting = False
 
+    def move(self):
+        next_row, next_col = self.row, self.col
+        if self.direction == "right": next_col += 1
+        elif self.direction == "left": next_col -= 1
+        elif self.direction == "down": next_row += 1
+        elif self.direction == "up": next_row -= 1
 
-# 그리드랑 도로 그리기
+        # Check road bounds
+        if 0 <= next_row < ROWS and 0 <= next_col < COLS:
+            if road_map[next_row][next_col] == 1:
+                self.row, self.col = next_row, next_col
+                self.x = self.col * GRID_SIZE + 10
+                self.y = self.row * GRID_SIZE + 10
+
+    def draw(self):
+        pygame.draw.rect(screen, CAR_COLOR, (self.x, self.y, 20, 20))
+
+    def is_on_road(self):
+        return 0 <= self.row < ROWS and 0 <= self.col < COLS and road_map[self.row][self.col] == 1
+
+# Functions
 def draw_grid():
     for i in range(ROWS):
         for j in range(COLS):
-            rect = pygame.Rect(j * GRID_SIZE, i * GRID_SIZE, GRID_SIZE, GRID_SIZE) # 각 격자의 사각형 생성, j=0,i=0일때 0,0에 40x40 사각형 생성
-            if road_map[i][j] == 1:
-                pygame.draw.rect(screen, ROAD_COLOR, rect) #셀이 1이면 도로(색칠)
-            else:
-                pygame.draw.rect(screen, WHITE, rect)
-            pygame.draw.rect(screen, GRAY, rect, 1) #모든 셀 위에 회색 테두리를 얇게 그림
+            color = ROAD_COLOR if road_map[i][j] == 1 else WHITE
+            pygame.draw.rect(screen, color, (j * GRID_SIZE, i * GRID_SIZE, GRID_SIZE, GRID_SIZE))
+            pygame.draw.rect(screen, GRAY, (j * GRID_SIZE, i * GRID_SIZE, GRID_SIZE, GRID_SIZE), 1)
 
-# Main loop
-running = True
-while running: #게임 상태 지속
+def generate_intersections(n):
+    global intersections, road_map
+    intersections.clear()
+    road_map = [[0 for _ in range(COLS)] for _ in range(ROWS)]
+    for _ in range(n):
+        row = random.randint(2, ROWS - 3)
+        col = random.randint(2, COLS - 3)
+        intersections.append(Intersection(row, col))
+        for i in range(ROWS): road_map[i][col] = 1
+        for j in range(COLS): road_map[row][j] = 1
+
+def spawn_car():
+    direction = random.choice(["up", "down", "left", "right"])
+    if direction == "right":
+        row = random.choice([i for i in range(ROWS) if road_map[i][0] == 1])
+        return Car(row, 0, direction)
+    elif direction == "left":
+        row = random.choice([i for i in range(ROWS) if road_map[i][COLS-1] == 1])
+        return Car(row, COLS-1, direction)
+    elif direction == "down":
+        col = random.choice([j for j in range(COLS) if road_map[0][j] == 1])
+        return Car(0, col, direction)
+    elif direction == "up":
+        col = random.choice([j for j in range(COLS) if road_map[ROWS-1][j] == 1])
+        return Car(ROWS-1, col, direction)
+
+def reset_game():
+    global cars, car_crashed
+    cars.clear()
+    car_crashed = False
+
+def draw_text_center(text):
+    txt = font.render(text, True, RED)
+    screen.blit(txt, (WIDTH // 2 - txt.get_width() // 2, HEIGHT // 2 - txt.get_height() // 2))
+
+# UI Elements
+start_button = Button("Start", WIDTH // 2 - 50, HEIGHT // 2, 100, 50)
+input_box = pygame.Rect(WIDTH // 2 - 50, HEIGHT // 2 + 60, 100, 40)
+user_input = ""
+spawn_timer = 0
+spawn_interval = 40
+paused = False
+
+# Main Loop
+while True:
     screen.fill(WHITE)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False #모든 이벤트를 확인하고 닫기 버튼 클릭시 종료
+            pygame.quit()
+            sys.exit()
+        if game_state == "menu" and event.type == pygame.MOUSEBUTTONDOWN:
+            if start_button.is_clicked(event.pos):
+                game_state = "input"
+        elif game_state == "input" and event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RETURN:
+                if user_input.isdigit():
+                    generate_intersections(int(user_input))
+                    game_state = "play"
+            elif event.key == pygame.K_BACKSPACE:
+                user_input = user_input[:-1]
+            else:
+                user_input += event.unicode
+        elif game_state == "play":
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    paused = not paused
+                if event.key == pygame.K_p:
+                    game_state = "crash"
+        elif game_state == "crash" and event.type == pygame.MOUSEBUTTONDOWN:
+            game_state = "menu"
+            reset_game()
 
-    draw_grid()
-    #교차점의 신호등을 업데이트하고 화면에 그림
-    for inter in intersections:
-        inter.update()
-        inter.draw(screen)
-    #각 자동차의 위치를 업데이트하고 화면에 그림
-    for car in cars:
-        car.update()
-        car.draw(screen)
+    if game_state == "menu":
+        draw_text_center("Traffic Simulator")
+        start_button.draw()
+    elif game_state == "input":
+        draw_text_center("Number of intersections:")
+        pygame.draw.rect(screen, GRAY, input_box)
+        txt = font.render(user_input, True, BLACK)
+        screen.blit(txt, (input_box.x + 10, input_box.y + 5))
+    elif game_state == "play":
+        draw_grid()
+        for i in intersections:
+            i.update()
+            i.draw()
+        if not paused:
+            spawn_timer += 1
+            if spawn_timer > spawn_interval:
+                cars.append(spawn_car())
+                spawn_timer = 0
+        for car in cars:
+            if not paused:
+                car.move()
+            if car.is_on_road():
+                car.draw()
+    elif game_state == "crash":
+        draw_text_center("Car Crashed! Click to restart")
 
-    pygame.display.flip() #실제 화면으로 보여줌
-    clock.tick(60) #초당 60초 프레임
-
-pygame.quit()
+    pygame.display.flip()
+    clock.tick(60)
