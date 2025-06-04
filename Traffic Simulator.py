@@ -3,47 +3,47 @@ import sys
 import random
 
 # 화면 크기 및 그리드 설정
-WIDTH, HEIGHT = 800, 600
-GRID_SIZE = 40
-ROWS = HEIGHT // GRID_SIZE  # 세로 그리드 개수
-COLS = WIDTH // GRID_SIZE   # 가로 그리드 개수
+WIDTH,HEIGHT=800,600
+GRID_SIZE =40
+ROWS=HEIGHT//GRID_SIZE  # 세로 그리드 개수
+COLS=WIDTH//GRID_SIZE   # 가로 그리드 개수
 
 # 색상 정의
-WHITE = (255, 255, 255)
-GRAY = (200, 200, 200)
-BLACK = (0, 0, 0)
-ROAD_COLOR = (100, 100, 100)
-CAR_COLOR = (0, 0, 255)
-GREEN = (0, 255, 0)
-RED = (255, 0, 0)
+WHITE=(255, 255, 255)
+GRAY=(200, 200, 200)
+BLACK=(0,0,0)
+ROAD_COLOR=(100,100,100)
+CAR_COLOR=(0, 0, 255)
+GREEN=(0, 255, 0)
+RED=(255, 0, 0)
 
 pygame.init()
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+screen=pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Traffic Simulator")
-font = pygame.font.SysFont(None, 36)
-clock = pygame.time.Clock()
+font=pygame.font.SysFont(None, 36)
+clock=pygame.time.Clock()
 
 # 게임 상태 및 변수 초기화
-game_state = "menu"        # 현재 게임 상태 (메뉴, 입력, 플레이, 충돌 등)
-car_crashed = False        # 충돌 발생 여부
-intersections = []         # 교차로 리스트
-cars = []                  # 차량 리스트
-road_map = [[0 for _ in range(COLS)] for _ in range(ROWS)]  # 도로 여부 저장 2D 리스트
-crash_enabled = False      # 충돌 감지 토글 변수 (True면 충돌 무시)
-spawn_timer = 0            # 차량 생성 타이머
-spawn_interval = 60        # 차량 생성 간격 (프레임 단위)
-paused = False             # 일시정지 상태 여부
-user_input = ""            # 사용자 입력 문자열
+game_state="menu"        # 현재 게임 상태 (메뉴, 입력, 플레이, 충돌 등)
+car_crashed=False        # 충돌 발생 여부
+intersections=[]         # 교차로 리스트
+cars=[]                  # 차량 리스트
+road_map=[[0 for _ in range(COLS)] for _ in range(ROWS)]  # 도로 여부 저장 2D 리스트
+crash_enabled=False      # 충돌 감지 토글 변수 (True면 충돌 무시)
+spawn_timer=0            # 차량 생성 타이머
+spawn_interval=60        # 차량 생성 간격 (프레임 단위)
+paused=False             # 일시정지 상태 여부
+user_input=""            # 사용자 입력 문자열
 
-# 버튼 클래스 - UI 버튼 구현용
+# 버튼 클래스
 class Button:
     def __init__(self, text, x, y, w, h):
-        self.rect = pygame.Rect(x, y, w, h)  # 버튼 영역
-        self.text = text
+        self.rect=pygame.Rect(x, y, w, h)  # 버튼 영역
+        self.text=text
 
     def draw(self):
         pygame.draw.rect(screen, GRAY, self.rect)
-        txt = font.render(self.text, True, BLACK)
+        txt=font.render(self.text, True, BLACK)
         screen.blit(txt, (self.rect.x + 10, self.rect.y + 10))
 
     def is_clicked(self, pos):
@@ -52,18 +52,18 @@ class Button:
 # 신호등 클래스
 class TrafficLight:
     def __init__(self, x, y):
-        self.x = x
-        self.y = y
-        self.states = {'horizontal': 'green', 'vertical': 'red'}  # 초기 신호등 상태
-        self.timer = 0
-        self.interval = 180  # 신호 변경 간격(프레임)
+        self.x=x
+        self.y=y
+        self.states={'horizontal': 'green', 'vertical': 'red'}  # 초기 신호등 상태
+        self.timer=0
+        self.interval=180  # 신호 변경 간격(프레임)
 
     def update(self):
-        self.timer += 1
-        if self.timer > self.interval:
-            self.timer = 0
+        self.timer+=1
+        if self.timer>self.interval:
+            self.timer=0
             # 신호 바꾸기 (수평-수직 신호 스위칭)
-            self.states['horizontal'], self.states['vertical'] = self.states['vertical'], self.states['horizontal']
+            self.states['horizontal'], self.states['vertical']=self.states['vertical'], self.states['horizontal']
 
     def get_state(self, direction):
         # 차량 진행 방향에 따라 신호 상태 반환
@@ -71,19 +71,19 @@ class TrafficLight:
 
     def draw(self):
         # 신호등 색깔 표시
-        color_h = GREEN if self.states['horizontal'] == 'green' else RED
-        color_v = GREEN if self.states['vertical'] == 'green' else RED
+        color_h=GREEN if self.states['horizontal'] == 'green' else RED
+        color_v=GREEN if self.states['vertical'] == 'green' else RED
         pygame.draw.circle(screen, color_h, (self.x - 10, self.y), 6)  # 좌측(수평)
         pygame.draw.circle(screen, color_v, (self.x + 10, self.y), 6)  # 우측(수직)
 
 # 교차로 클래스
 class Intersection:
     def __init__(self, row, col):
-        self.row = row
-        self.col = col
-        self.x = col * GRID_SIZE + GRID_SIZE // 2  # 화면 좌표 x
-        self.y = row * GRID_SIZE + GRID_SIZE // 2  # 화면 좌표 y
-        self.light = TrafficLight(self.x, self.y)  # 교차로 신호등 생성
+        self.row=row
+        self.col=col
+        self.x=col * GRID_SIZE + GRID_SIZE // 2  # 화면 좌표 x
+        self.y=row * GRID_SIZE + GRID_SIZE // 2  # 화면 좌표 y
+        self.light=TrafficLight(self.x, self.y)  # 교차로 신호등 생성
 
     def update(self):
         self.light.update()  # 신호등 상태 업데이트
@@ -102,9 +102,9 @@ class Car:
         self.row = row
         self.col = col
         self.direction = direction
-        offset = 6 if direction in ["left", "up"] else 18  # 차량 좌표 조정 (좌/상은 약간 왼쪽 위에 붙음)
-        self.x = col * GRID_SIZE + offset
-        self.y = row * GRID_SIZE + offset
+        offset=6 if direction in ["left", "up"] else 18  # 차량 좌표 조정 (좌/상은 약간 왼쪽 위에 붙음)
+        self.x=col * GRID_SIZE + offset
+        self.y=row * GRID_SIZE + offset
         self.width = 10
         self.height = 10
         self.speed = 1
