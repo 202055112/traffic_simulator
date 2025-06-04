@@ -30,10 +30,13 @@ docker-compose up
 pip install -r requirements.txt
 python main.py
 
+---
 
-### 1. Docker Compose 이용
+### 2. Traffic Simulator.py 실행
 1. pip install pygame
 2. pygame 설치 후 실행
+
+---
 
 | 키       | 동작             |
 | ------- | -------------- |
