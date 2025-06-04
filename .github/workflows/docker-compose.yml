@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  traffic_simulator:
+    build: .
+    container_name: traffic_simulator
+    environment:
+      - DISPLAY=${DISPLAY}
+      - SDL_VIDEODRIVER=x11
+    volumes:
+      - .:/app
+    network_mode: "host"
+    stdin_open: true
+    tty: true
