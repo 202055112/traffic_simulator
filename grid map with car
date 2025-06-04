@@ -30,19 +30,27 @@ spawn_timer = 0
 spawn_interval = 60
 paused = False
 user_input = ""
+collision_check_enabled = True
 
 class Button:
-    def __init__(self, text, x, y, w, h):
+    def __init__(self, text, x, y, w, h, toggle=False):
         self.rect = pygame.Rect(x, y, w, h)
         self.text = text
+        self.toggle = toggle
+        self.active = False
 
     def draw(self):
-        pygame.draw.rect(screen, GRAY, self.rect)
+        color = (150, 255, 150) if self.active else GRAY
+        pygame.draw.rect(screen, color, self.rect)
         txt = font.render(self.text, True, BLACK)
-        screen.blit(txt, (self.rect.x + 10, self.rect.y + 10))
+        screen.blit(txt, (self.rect.x + 5, self.rect.y + 5))
 
     def is_clicked(self, pos):
         return self.rect.collidepoint(pos)
+
+    def update_toggle(self):
+        if self.toggle:
+            self.active = not self.active
 
 class TrafficLight:
     def __init__(self, x, y):
@@ -99,9 +107,14 @@ class Car:
         self.waiting = False
 
     def move(self):
-        if self.at_intersection() and self.get_light_state() == "red":
-            self.waiting = True
-            return
+        if self.at_intersection():
+            light = self.get_light_state()
+            if light == "red":
+                if not self.inside_intersection():
+                    self.waiting = True
+                    return
+            elif light == "green" and self.inside_intersection():
+                self.speed = 2  # accelerate to get out
         self.waiting = False
         if self.direction == "right": self.x += self.speed
         elif self.direction == "left": self.x -= self.speed
@@ -118,6 +131,12 @@ class Car:
     def at_intersection(self):
         for i in intersections:
             if abs(self.x - i.x) < GRID_SIZE // 2 and abs(self.y - i.y) < GRID_SIZE // 2:
+                return True
+        return False
+
+    def inside_intersection(self):
+        for i in intersections:
+            if abs(self.x - i.x) < 10 and abs(self.y - i.y) < 10:
                 return True
         return False
 
@@ -171,6 +190,7 @@ def draw_text_center(text, y_offset=0):
 
 start_button = Button("Start", WIDTH // 2 - 50, HEIGHT // 2 + 40, 100, 50)
 input_box = pygame.Rect(WIDTH // 2 - 50, HEIGHT // 2 + 100, 100, 40)
+prevention_button = Button("Car Prevention: ON", 10, 10, 200, 40, toggle=True)
 
 while True:
     screen.fill(WHITE)
@@ -190,11 +210,17 @@ while True:
                 user_input = user_input[:-1]
             else:
                 user_input += event.unicode
-        elif game_state == "play" and event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
-                paused = not paused
-            elif event.key == pygame.K_p:
-                crash_enabled = not crash_enabled
+        elif game_state == "play":
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    paused = not paused
+                elif event.key == pygame.K_p:
+                    crash_enabled = not crash_enabled
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if prevention_button.is_clicked(event.pos):
+                    prevention_button.update_toggle()
+                    collision_check_enabled = prevention_button.active
+                    prevention_button.text = "Car Prevention: ON" if prevention_button.active else "Car Prevention: OFF"
         elif game_state == "crash" and event.type == pygame.MOUSEBUTTONDOWN:
             game_state = "menu"
             reset_game()
@@ -209,6 +235,7 @@ while True:
         screen.blit(txt, (input_box.x + 10, input_box.y + 5))
     elif game_state == "play":
         draw_grid()
+        prevention_button.draw()
         for i in intersections:
             i.update()
             i.draw()
@@ -225,10 +252,16 @@ while True:
                 for other in cars[i+1:]:
                     if abs(car.x - other.x) < car.width and abs(car.y - other.y) < car.height:
                         game_state = "crash"
-            if not car.is_off_screen():
+            if collision_check_enabled:
+                for other in cars:
+                    if other != car and abs(car.x - other.x) < 15 and abs(car.y - other.y) < 15:
+                        break
+                else:
+                    new_cars.append(car)
+            else:
                 new_cars.append(car)
-                car.draw()
-        cars = new_cars
+            car.draw()
+        cars = [c for c in new_cars if not c.is_off_screen()]
     elif game_state == "crash":
         draw_text_center("Car Crashed! Click to restart")
 
