@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  traffic_simulator:
+    build: .
+    container_name: traffic_simulator
+    environment:
+      - DISPLAY=${DISPLAY}          # 로컬 X 서버와 연결
+      - SDL_VIDEODRIVER=x11         # Pygame X11 드라이버 사용
+    volumes:
+      - .:/app                     # 코드 변경 즉시 반영
+    network_mode: "host"            # 호스트 네트워크 사용
+    stdin_open: true
+    tty: true
