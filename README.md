@@ -20,7 +20,7 @@ Python과 Pygame으로 구현한 동적이고 인터랙티브한 교통 시뮬�
 
 ## 🚀 실행 방법
 
-### 1. Docker Compose 이용 (권장)
+### 1. Docker Compose 이용
 
 ```bash
 docker-compose up
