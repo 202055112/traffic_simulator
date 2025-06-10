@@ -1,14 +1,23 @@
-FROM python:3.8-slim
+# 베이스 이미지
+FROM python:3.11-slim
 
+# 필수 도구 설치 (x11, pygame 실행용)
+RUN apt-get update && apt-get install -y \
+    xvfb \
+    x11-utils \
+    python3-tk \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 작업 디렉토리 설정
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
+# 코드 복사
 COPY . .
 
-ENV DISPLAY=:0
-ENV SDL_VIDEODRIVER=x11
+# 패키지 설치
+RUN pip install --no-cache-dir -r requirements.txt
 
-CMD ["python", "main.py"]
-
+# 스크립트 실행 (X 가상 화면을 사용)
+CMD ["xvfb-run", "python", "main.py"]
