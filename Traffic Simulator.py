@@ -139,6 +139,7 @@ class Car:
                 return True
         return False
 
+
     def move(self):
         if self.at_intersection() and self.get_light_state() == "red":
             self.waiting = True
@@ -179,7 +180,7 @@ class Car:
         if self.at_intersection() and self.get_light_state() == "red":
             self.waiting = True
             return
-        if self.will_soon_be_red():
+        if self.will_soon_be_red() and self.is_near_intersection():
             self.waiting = True
             return
         if not crash_enabled:
