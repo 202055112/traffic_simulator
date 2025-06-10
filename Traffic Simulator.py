@@ -26,14 +26,12 @@ font = pygame.font.SysFont(None, 36)
 clock = pygame.time.Clock()
 
 # 게임 상태
-# 메뉴, 입력, 게임플레이 등의 상태를 구분
-# 충돌 여부, 교차로 및 차량 리스트, 사용자 입력 등을 정의 
 game_state = "menu"
 car_crashed = False
 intersections = []
 cars = []
 road_map = [[0 for _ in range(COLS)] for _ in range(ROWS)]
-crash_enabled = False  # 시작 시 충돌 감지 꺼짐
+crash_enabled = False
 spawn_timer = 0
 spawn_interval = 60
 paused = False
@@ -60,20 +58,23 @@ class TrafficLight:
         self.y = y
         self.states = {'horizontal': 'green', 'vertical': 'red'}
         self.timer = 0
-        self.interval = 180  # 신호 전환 주기
+        self.interval = 180
 
     def update(self):
         self.timer += 1
         if self.timer > self.interval:
             self.timer = 0
-            # 수평 ↔ 수직 신호 전환
             self.states['horizontal'], self.states['vertical'] = self.states['vertical'], self.states['horizontal']
 
     def get_state(self, direction):
         return self.states['horizontal'] if direction in ["left", "right"] else self.states['vertical']
 
+    def will_soon_turn_red(self, direction, threshold=30):
+        if self.get_state(direction) == 'green':
+            return self.timer > self.interval - threshold
+        return False
+
     def draw(self):
-        # 수평, 수직 신호등 각각 표시
         color_h = GREEN if self.states['horizontal'] == 'green' else RED
         color_v = GREEN if self.states['vertical'] == 'green' else RED
         pygame.draw.circle(screen, color_h, (self.x - 10, self.y), 6)
@@ -113,7 +114,6 @@ class Car:
         self.waiting = False
 
     def is_too_close(self, other):
-        # 같은 방향, 너무 가까운 차량 판단
         if self.direction != other.direction:
             return False
         if self.direction == "right" and other.x > self.x and abs(self.y - other.y) < self.height and (other.x - self.x) < 20:
@@ -127,24 +127,33 @@ class Car:
         return False
 
     def move(self):
-        # 교차로 + 빨간불이면 정지
-        if self.at_intersection() and self.get_light_state() == "red":
-            self.waiting = True
-            return
+        for i in intersections:
+            dist_x = abs(self.x - i.x)
+            dist_y = abs(self.y - i.y)
+            close = dist_x < GRID_SIZE and dist_y < GRID_SIZE
 
-        # 충돌 방지 활성화 상태면 거리 유지
+            if close:
+                light_state = i.get_light_state(self.direction)
+                will_change = i.light.will_soon_turn_red(self.direction)
+
+                if light_state == "red" or (will_change and not self.in_center_of_intersection(i)):
+                    self.waiting = True
+                    return
+
         if not crash_enabled:
             for other in cars:
                 if other is not self and self.is_too_close(other):
                     self.waiting = True
                     return
 
-        # 이동
         self.waiting = False
         if self.direction == "right": self.x += self.speed
         elif self.direction == "left": self.x -= self.speed
         elif self.direction == "down": self.y += self.speed
         elif self.direction == "up": self.y -= self.speed
+
+    def in_center_of_intersection(self, intersection):
+        return abs(self.x - intersection.x) < self.width and abs(self.y - intersection.y) < self.height
 
     def draw(self):
         if 0 <= self.x < WIDTH and 0 <= self.y < HEIGHT:
@@ -153,17 +162,7 @@ class Car:
     def is_off_screen(self):
         return not (0 <= self.x < WIDTH and 0 <= self.y < HEIGHT)
 
-    def at_intersection(self):
-        return any(abs(self.x - i.x) < GRID_SIZE // 2 and abs(self.y - i.y) < GRID_SIZE // 2 for i in intersections)
-
-    def get_light_state(self):
-        for i in intersections:
-            if abs(self.x - i.x) < GRID_SIZE // 2 and abs(self.y - i.y) < GRID_SIZE // 2:
-                return i.get_light_state(self.direction)
-        return "green"
-
 # 격자 및 도로 표시
-
 def draw_grid():
     for i in range(ROWS):
         for j in range(COLS):
@@ -171,23 +170,32 @@ def draw_grid():
             pygame.draw.rect(screen, color, (j * GRID_SIZE, i * GRID_SIZE, GRID_SIZE, GRID_SIZE))
             pygame.draw.rect(screen, GRAY, (j * GRID_SIZE, i * GRID_SIZE, GRID_SIZE, GRID_SIZE), 1)
 
-# 교차로 자동 생성 (랜덤 위치)
+# 교차로 자동 생성
 def generate_intersections(n):
     global intersections, road_map
     intersections.clear()
     road_map = [[0 for _ in range(COLS)] for _ in range(ROWS)]
+    used_rows = set()
+    used_cols = set()
     count = 0
-    while count < n:
+    attempts = 0
+
+    while count < n and attempts < 100:
         row = random.randint(2, ROWS - 3)
         col = random.randint(2, COLS - 3)
+        if row in used_rows or col in used_cols:
+            attempts += 1
+            continue
         if all(abs(i.row - row) > 1 or abs(i.col - col) > 1 for i in intersections):
             intersections.append(Intersection(row, col))
+            used_rows.add(row)
+            used_cols.add(col)
             for i in range(ROWS): road_map[i][col] = 1
             for j in range(COLS): road_map[row][j] = 1
             count += 1
+        attempts += 1
 
 # 차량 생성
-
 def spawn_car():
     direction = random.choice(["up", "down", "left", "right"])
     if direction == "right":
@@ -204,19 +212,17 @@ def spawn_car():
         return Car(ROWS - 1, col, direction)
 
 # 게임 초기화
-
 def reset_game():
     global cars, car_crashed
     cars.clear()
     car_crashed = False
 
 # 중앙 텍스트 표시
-
 def draw_text_center(text, y_offset=0):
     txt = font.render(text, True, RED)
     screen.blit(txt, (WIDTH // 2 - txt.get_width() // 2, HEIGHT // 2 - txt.get_height() // 2 + y_offset))
 
-# UI 버튼 및 입력 상자
+# UI 요소
 start_button = Button("Start", WIDTH // 2 - 50, HEIGHT // 2 + 40, 100, 50)
 input_box = pygame.Rect(WIDTH // 2 - 50, HEIGHT // 2 + 100, 100, 40)
 
@@ -255,18 +261,15 @@ while True:
                 cars.clear()
                 intersections.clear()
 
-    # 상태별 렌더링
     if game_state == "menu":
         draw_text_center("Traffic Simulator")
         start_button.draw()
-
     elif game_state == "input":
         draw_text_center("Enter number of intersections (1-10):")
         pygame.draw.rect(screen, WHITE, input_box)
         pygame.draw.rect(screen, BLACK, input_box, 2)
         txt_surface = font.render(user_input, True, BLACK)
         screen.blit(txt_surface, (input_box.x + 5, input_box.y + 5))
-
     elif game_state == "play":
         draw_grid()
         for i in intersections:
