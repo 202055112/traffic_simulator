@@ -1,6 +1,7 @@
 import pygame
 import sys
 import random
+import time
 
 # 화면 설정
 WIDTH, HEIGHT = 800, 600
