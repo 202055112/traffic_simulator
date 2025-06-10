@@ -127,6 +127,54 @@ class Car:
                     return True
         return False
 
+    def is_near_intersection(self):
+        for i in intersections:
+            if self.direction == "right" and self.x < i.x and abs(self.y - i.y) < GRID_SIZE // 2 and i.x - self.x < 20:
+                return True
+            if self.direction == "left" and self.x > i.x and abs(self.y - i.y) < GRID_SIZE // 2 and self.x - i.x < 20:
+                return True
+            if self.direction == "down" and self.y < i.y and abs(self.x - i.x) < GRID_SIZE // 2 and i.y - self.y < 20:
+                return True
+            if self.direction == "up" and self.y > i.y and abs(self.x - i.x) < GRID_SIZE // 2 and self.y - i.y < 20:
+                return True
+        return False
+
+    def move(self):
+        if self.at_intersection() and self.get_light_state() == "red":
+            self.waiting = True
+            return
+        if self.will_soon_be_red() and self.is_near_intersection():
+            self.waiting = True
+            return
+        if not crash_enabled:
+            for other in cars:
+                if other is not self and self.is_too_close(other):
+                    self.waiting = True
+                    return
+
+        self.waiting = False
+        if self.direction == "right": self.x += self.speed
+        elif self.direction == "left": self.x -= self.speed
+        elif self.direction == "down": self.y += self.speed
+        elif self.direction == "up": self.y -= self.speed
+
+    def draw(self):
+        if 0 <= self.x < WIDTH and 0 <= self.y < HEIGHT:
+            pygame.draw.rect(screen, CAR_COLOR, (self.x, self.y, self.width, self.height))
+
+    def is_off_screen(self):
+        return not (0 <= self.x < WIDTH and 0 <= self.y < HEIGHT)
+
+    def at_intersection(self):
+        return any(abs(self.x - i.x) < GRID_SIZE // 2 and abs(self.y - i.y) < GRID_SIZE // 2 for i in intersections)
+
+    def get_light_state(self):
+        for i in intersections:
+            if abs(self.x - i.x) < GRID_SIZE // 2 and abs(self.y - i.y) < GRID_SIZE // 2:
+                return i.get_light_state(self.direction)
+        return "green"
+
+
     def move(self):
         if self.at_intersection() and self.get_light_state() == "red":
             self.waiting = True
