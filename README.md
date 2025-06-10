@@ -28,8 +28,10 @@ docker-compose up
 # -
 
 ## 수동 실행시
-pip install -r requirements.txt
-python main.py
+git clone https://github.com/202055112/traffic_simulator.git
+cd traffic-simulator
+xhost +local:docker
+docker-compose up --build
 
 ---
 
@@ -47,15 +49,4 @@ python main.py
 | `ESC`   | 메인 메뉴로 돌아가기    |
 | 마우스 클릭  | 버튼 클릭          |
 
-##프로젝트 구조
-/traffic_sim/
-├── assets/             # 차량 이미지 및 그래픽 리소스
-├── main.py             # 메인 실행 파일
-├── car.py              # 차량 클래스 및 로직
-├── intersection.py     # 교차로 및 신호등 관리
-├── ui.py               # 버튼 및 UI 관련 코드
-├── utils.py            # 유틸리티 함수들
-├── requirements.txt    # 필요한 라이브러리 목록
-├── Dockerfile          # 도커 이미지 빌드 설정
-├── docker-compose.yml  # 도커 컴포즈 설정
-├── README.md           # 프로젝트 설명서 (이 파일)
+
