@@ -7,11 +7,13 @@ services:
     environment:
       - DISPLAY=${DISPLAY}
       - SDL_VIDEODRIVER=x11
-      - XAUTHORITY=/tmp/.docker.xauth
+      - XAUTHORITY=/root/.Xauthority
     volumes:
       - .:/app
       - /tmp/.X11-unix:/tmp/.X11-unix
-      - ~/.Xauthority:/tmp/.docker.xauth:ro
-    network_mode: "host"
+      - ~/.Xauthority:/root/.Xauthority:ro
+    network_mode: "host"  # ✅ Only works on Linux
     stdin_open: true
     tty: true
+    working_dir: /app
+    command: ["python", "main.py"]
