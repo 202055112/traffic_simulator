@@ -231,22 +231,31 @@ def get_actual_crossroads():
 
     return [(r, c) for r in horizontal_roads for c in vertical_roads if road_map[r][c] == 1]
 
+# ... (생략된 상단 import 및 설정 부분 동일)
+
 def generate_intersections(n):
     global intersections, road_map
     intersections.clear()
     road_map = [[0 for _ in range(COLS)] for _ in range(ROWS)]
-    count = 0
-    selected_rows, selected_cols = set(), set()
+    selected_rows = []
+    selected_cols = []
 
-    while count < n:
+    def is_far_enough(candidate, existing_list, min_distance=2):
+        return all(abs(candidate - val) >= min_distance for val in existing_list)
+
+    # 행 선택
+    while len(selected_rows) < n:
         row = random.randint(2, ROWS - 3)
-        col = random.randint(2, COLS - 3)
-        if row in selected_rows or col in selected_cols:
-            continue
-        selected_rows.add(row)
-        selected_cols.add(col)
-        count += 1
+        if is_far_enough(row, selected_rows):
+            selected_rows.append(row)
 
+    # 열 선택
+    while len(selected_cols) < n:
+        col = random.randint(2, COLS - 3)
+        if is_far_enough(col, selected_cols):
+            selected_cols.append(col)
+
+    # 도로 맵 그리기
     for r in selected_rows:
         for j in range(COLS):
             road_map[r][j] = 1
@@ -254,10 +263,13 @@ def generate_intersections(n):
         for i in range(ROWS):
             road_map[i][c] = 1
 
-    # Only add intersections where horizontal and vertical roads intersect
+    # 교차로 객체 생성
     for r in selected_rows:
         for c in selected_cols:
             intersections.append(Intersection(r, c))
+
+# ... (이외 코드는 모두 동일, 아래 루프 포함)
+
 
 
 def spawn_car():
