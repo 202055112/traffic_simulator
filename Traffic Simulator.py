@@ -26,7 +26,7 @@ clock = pygame.time.Clock()
 
 # 게임 상태
 # 메뉴, 입력, 게임플레이 등의 상태를 구분
-# 충돌 여부, 교차로 및 차량 리스트, 사용자 입력 등을 정의
+# 충돌 여부, 교차로 및 차량 리스트, 사용자 입력 등을 정의 
 game_state = "menu"
 car_crashed = False
 intersections = []
