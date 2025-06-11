@@ -7,13 +7,13 @@ services:
     environment:
       - DISPLAY=${DISPLAY}
       - SDL_VIDEODRIVER=x11
-      - XAUTHORITY=/root/.Xauthority
+      - XAUTHORITY=/tmp/.docker.xauth
     volumes:
       - .:/app
       - /tmp/.X11-unix:/tmp/.X11-unix
-      - ~/.Xauthority:/root/.Xauthority:ro
-    network_mode: "host"  # ✅ Only works on Linux
+      - ~/.Xauthority:/tmp/.docker.xauth:ro
+    network_mode: "host"
     stdin_open: true
     tty: true
-    working_dir: /app
-    command: ["python", "main.py"]
+    command: ["python3", "Traffic Simulator.py"]
+
