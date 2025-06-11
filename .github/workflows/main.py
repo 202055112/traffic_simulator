@@ -14,9 +14,9 @@ WHITE = (255, 255, 255)
 GRAY = (200, 200, 200)
 BLACK = (0, 0, 0)
 ROAD_COLOR = (100, 100, 100)
-CAR_COLOR = (0, 0, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
+CAR_COLORS = [(0, 255, 0), (0, 0, 255), (255, 0, 0), (255, 255, 0)]  # 초록, 파랑, 빨강, 노랑
 
 # 초기화
 pygame.init()
@@ -91,8 +91,6 @@ class Intersection:
     def get_light_state(self, direction):
         return self.light.get_state(direction)
 
-CAR_COLORS = [(0, 255, 0), (0, 0, 255),(255, 255, 0)]
-
 class Car:
     def __init__(self, row, col, direction):
         self.row = row
@@ -125,9 +123,7 @@ class Car:
             dx = abs(self.x - i.x)
             dy = abs(self.y - i.y)
             if dx < GRID_SIZE and dy < GRID_SIZE:
-                direction = self.direction
-                current_state = i.get_light_state(direction)
-                if current_state == "green" and i.light.timer > i.light.interval - 30:
+                if i.get_light_state(self.direction) == "green" and i.light.timer > i.light.interval - 30:
                     return True
         return False
 
@@ -143,7 +139,6 @@ class Car:
                 return True
         return False
 
-
     def move(self):
         if self.at_intersection() and self.get_light_state() == "red":
             self.waiting = True
@@ -156,43 +151,6 @@ class Car:
                 if other is not self and self.is_too_close(other):
                     self.waiting = True
                     return
-
-        self.waiting = False
-        if self.direction == "right": self.x += self.speed
-        elif self.direction == "left": self.x -= self.speed
-        elif self.direction == "down": self.y += self.speed
-        elif self.direction == "up": self.y -= self.speed
-
-    def draw(self):
-        if 0 <= self.x < WIDTH and 0 <= self.y < HEIGHT:
-            pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
-
-    def is_off_screen(self):
-        return not (0 <= self.x < WIDTH and 0 <= self.y < HEIGHT)
-
-    def at_intersection(self):
-        return any(abs(self.x - i.x) < GRID_SIZE // 2 and abs(self.y - i.y) < GRID_SIZE // 2 for i in intersections)
-
-    def get_light_state(self):
-        for i in intersections:
-            if abs(self.x - i.x) < GRID_SIZE // 2 and abs(self.y - i.y) < GRID_SIZE // 2:
-                return i.get_light_state(self.direction)
-        return "green"
-
-
-    def move(self):
-        if self.at_intersection() and self.get_light_state() == "red":
-            self.waiting = True
-            return
-        if self.will_soon_be_red() and self.is_near_intersection():
-            self.waiting = True
-            return
-        if not crash_enabled:
-            for other in cars:
-                if other is not self and self.is_too_close(other):
-                    self.waiting = True
-                    return
-
         self.waiting = False
         if self.direction == "right": self.x += self.speed
         elif self.direction == "left": self.x -= self.speed
@@ -222,22 +180,6 @@ def draw_grid():
             pygame.draw.rect(screen, color, (j * GRID_SIZE, i * GRID_SIZE, GRID_SIZE, GRID_SIZE))
             pygame.draw.rect(screen, GRAY, (j * GRID_SIZE, i * GRID_SIZE, GRID_SIZE, GRID_SIZE), 1)
 
-def get_actual_crossroads():
-    horizontal_roads = set()
-    vertical_roads = set()
-
-    for r in range(ROWS):
-        if any(road_map[r][c] == 1 for c in range(COLS)):
-            horizontal_roads.add(r)
-
-    for c in range(COLS):
-        if any(road_map[r][c] == 1 for r in range(ROWS)):
-            vertical_roads.add(c)
-
-    return [(r, c) for r in horizontal_roads for c in vertical_roads if road_map[r][c] == 1]
-
-
-
 def generate_intersections(n):
     global intersections, road_map
     intersections.clear()
@@ -248,49 +190,53 @@ def generate_intersections(n):
     def is_far_enough(candidate, existing_list, min_distance=2):
         return all(abs(candidate - val) >= min_distance for val in existing_list)
 
-    # 행 선택
-    while len(selected_rows) < n:
-        row = random.randint(2, ROWS - 3)
-        if is_far_enough(row, selected_rows):
-            selected_rows.append(row)
-
-    # 열 선택
-    while len(selected_cols) < n:
-        col = random.randint(2, COLS - 3)
-        if is_far_enough(col, selected_cols):
-            selected_cols.append(col)
-
-    # 도로 맵 그리기
-    for r in selected_rows:
-        for j in range(COLS):
-            road_map[r][j] = 1
-    for c in selected_cols:
-        for i in range(ROWS):
-            road_map[i][c] = 1
-
-    # 교차로 객체 생성
-    for r in selected_rows:
+    try:
+        while len(selected_rows) < n:
+            row = random.randint(2, ROWS - 3)
+            if is_far_enough(row, selected_rows):
+                selected_rows.append(row)
+        while len(selected_cols) < n:
+            col = random.randint(2, COLS - 3)
+            if is_far_enough(col, selected_cols):
+                selected_cols.append(col)
+        for r in selected_rows:
+            for j in range(COLS):
+                road_map[r][j] = 1
         for c in selected_cols:
-            intersections.append(Intersection(r, c))
-
-
-
-
+            for i in range(ROWS):
+                road_map[i][c] = 1
+        for r in selected_rows:
+            for c in selected_cols:
+                intersections.append(Intersection(r, c))
+    except Exception as e:
+        print("Error generating intersections:", e)
 
 def spawn_car():
-    direction = random.choice(["up", "down", "left", "right"])
-    if direction == "right":
-        row = random.choice([i for i in range(ROWS) if road_map[i][0] == 1])
-        return Car(row, 0, direction)
-    elif direction == "left":
-        row = random.choice([i for i in range(ROWS) if road_map[i][COLS - 1] == 1])
-        return Car(row, COLS - 1, direction)
-    elif direction == "down":
-        col = random.choice([j for j in range(COLS) if road_map[0][j] == 1])
-        return Car(0, col, direction)
-    elif direction == "up":
-        col = random.choice([j for j in range(COLS) if road_map[ROWS - 1][j] == 1])
-        return Car(ROWS - 1, col, direction)
+    try:
+        direction = random.choice(["up", "down", "left", "right"])
+        if direction == "right":
+            candidates = [i for i in range(ROWS) if road_map[i][0] == 1]
+            if not candidates: return None
+            row = random.choice(candidates)
+            return Car(row, 0, direction)
+        elif direction == "left":
+            candidates = [i for i in range(ROWS) if road_map[i][COLS - 1] == 1]
+            if not candidates: return None
+            row = random.choice(candidates)
+            return Car(row, COLS - 1, direction)
+        elif direction == "down":
+            candidates = [j for j in range(COLS) if road_map[0][j] == 1]
+            if not candidates: return None
+            col = random.choice(candidates)
+            return Car(0, col, direction)
+        elif direction == "up":
+            candidates = [j for j in range(COLS) if road_map[ROWS - 1][j] == 1]
+            if not candidates: return None
+            col = random.choice(candidates)
+            return Car(ROWS - 1, col, direction)
+    except Exception as e:
+        print("Error spawning car:", e)
+        return None
 
 def reset_game():
     global cars, car_crashed
@@ -305,91 +251,85 @@ start_button = Button("Start", WIDTH // 2 - 50, HEIGHT // 2 + 40, 100, 50)
 input_box = pygame.Rect(WIDTH // 2 - 50, HEIGHT // 2 + 100, 100, 40)
 
 while True:
-    screen.fill(WHITE)
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-        if game_state == "menu" and event.type == pygame.MOUSEBUTTONDOWN:
-            if start_button.is_clicked(event.pos):
-                game_state = "input"
-        elif game_state == "input" and event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_RETURN:
-                if user_input.isdigit() and 1 <= int(user_input) <= 10:
-                    generate_intersections(int(user_input))
-                    reset_game()
-                    game_state = "play"
-                    user_input = ""
-            elif event.key == pygame.K_BACKSPACE:
-                user_input = user_input[:-1]
-            else:
-                if len(user_input) < 2 and event.unicode.isdigit():
+    try:
+        screen.fill(WHITE)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if game_state == "menu" and event.type == pygame.MOUSEBUTTONDOWN:
+                if start_button.is_clicked(event.pos):
+                    game_state = "input"
+            elif game_state == "input" and event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    if user_input.isdigit() and 1 <= int(user_input) <= 10:
+                        generate_intersections(int(user_input))
+                        reset_game()
+                        game_state = "play"
+                        user_input = ""
+                elif event.key == pygame.K_BACKSPACE:
+                    user_input = user_input[:-1]
+                elif event.unicode.isdigit() and len(user_input) < 2:
                     user_input += event.unicode
-        elif game_state == "play" and event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_p:
-                crash_enabled = not crash_enabled
-                if not crash_enabled:
-                    car_crashed = False
-            if event.key == pygame.K_SPACE:
-                paused = not paused
-            if event.key == pygame.K_ESCAPE:
-                game_state = "menu"
-                cars.clear()
-                intersections.clear()
+            elif game_state == "play" and event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_p:
+                    crash_enabled = not crash_enabled
+                    if not crash_enabled:
+                        car_crashed = False
+                if event.key == pygame.K_SPACE:
+                    paused = not paused
+                if event.key == pygame.K_ESCAPE:
+                    game_state = "menu"
+                    cars.clear()
+                    intersections.clear()
 
-    if game_state == "menu":
-        draw_text_center("Traffic Simulator")
-        start_button.draw()
-
-    elif game_state == "input":
-        draw_text_center("Enter number of intersections (1-10):")
-        pygame.draw.rect(screen, WHITE, input_box)
-        pygame.draw.rect(screen, BLACK, input_box, 2)
-        txt_surface = font.render(user_input, True, BLACK)
-        screen.blit(txt_surface, (input_box.x + 5, input_box.y + 5))
-
-    elif game_state == "play":
-        draw_grid()
-        for i in intersections:
-            i.update()
-            i.draw()
-
-        if not paused and not car_crashed:
-            spawn_timer += 1
-            if spawn_timer > spawn_interval:
-                spawn_timer = 0
-                new_car = spawn_car()
-                if new_car:
-                    cars.append(new_car)
-
+        if game_state == "menu":
+            draw_text_center("Traffic Simulator")
+            start_button.draw()
+        elif game_state == "input":
+            draw_text_center("Enter number of intersections (1-10):")
+            pygame.draw.rect(screen, WHITE, input_box)
+            pygame.draw.rect(screen, BLACK, input_box, 2)
+            txt_surface = font.render(user_input, True, BLACK)
+            screen.blit(txt_surface, (input_box.x + 5, input_box.y + 5))
+        elif game_state == "play":
+            draw_grid()
+            for i in intersections:
+                i.update()
+                i.draw()
+            if not paused and not car_crashed:
+                spawn_timer += 1
+                if spawn_timer > spawn_interval:
+                    spawn_timer = 0
+                    new_car = spawn_car()
+                    if new_car:
+                        cars.append(new_car)
+                for car in cars:
+                    car.move()
+                if crash_enabled:
+                    for i1 in range(len(cars)):
+                        for i2 in range(i1 + 1, len(cars)):
+                            c1, c2 = cars[i1], cars[i2]
+                            if pygame.Rect(c1.x, c1.y, c1.width, c1.height).colliderect(
+                               pygame.Rect(c2.x, c2.y, c2.width, c2.height)):
+                                car_crashed = True
+                                paused = True
+                cars = [c for c in cars if not c.is_off_screen()]
             for car in cars:
-                car.move()
+                car.draw()
+            if car_crashed:
+                draw_text_center("Car Crashed!", 50)
+            status_text = "Collision Detection: ON" if crash_enabled else "Collision Detection: OFF"
+            screen.blit(font.render(status_text, True, RED if crash_enabled else GREEN), (10, 10))
+            if paused:
+                draw_text_center("Paused", 100)
+        pygame.display.flip()
+        clock.tick(60)
 
-            if crash_enabled:
-                for i1 in range(len(cars)):
-                    for i2 in range(i1 + 1, len(cars)):
-                        c1, c2 = cars[i1], cars[i2]
-                        rect1 = pygame.Rect(c1.x, c1.y, c1.width, c1.height)
-                        rect2 = pygame.Rect(c2.x, c2.y, c2.width, c2.height)
-                        if rect1.colliderect(rect2):
-                            car_crashed = True
-                            paused = True
-
-            cars = [c for c in cars if not c.is_off_screen()]
-
-        for car in cars:
-            car.draw()
-
-        if car_crashed:
-            draw_text_center("Car Crashed!", 50)
-
-        status_text = "Collision Detection: ON" if crash_enabled else "Collision Detection: OFF"
-        status_surf = font.render(status_text, True, RED if crash_enabled else GREEN)
-        screen.blit(status_surf, (10, 10))
-
-        if paused:
-            draw_text_center("Paused", 100)
-
-    pygame.display.flip()
-    clock.tick(60)
+    except Exception as e:
+        print("Unexpected error:", e)
+        draw_text_center("An error occurred.", 150)
+        pygame.display.flip()
+        pygame.time.delay(2000)
+        pygame.quit()
+        sys.exit()
