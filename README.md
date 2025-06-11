@@ -49,4 +49,19 @@ docker-compose up --build
 | `ESC`   | 메인 메뉴로 돌아가기    |
 | 마우스 클릭  | 버튼 클릭          |
 
+traffic-simulator/
+├── assets/
+│   ├── images/               # 차, 신호등 이미지 넣을 폴더 (현재는 안 쓰지만 확장 대비)
+│   └── sounds/               # 사운드 효과 (선택 사항)
+├── src/
+│   ├── __init__.py
+│   ├── main.py               # 프로그램 실행 메인 파일
+│   ├── simulation.py         # 게임 로직 (도로, 차, 교차로 등)
+│   ├── ui.py                 # 버튼 및 UI 관련 코드
+│   └── config.py             # 설정 값들 (화면 크기, 색상 등)
+├── README.md                 # 프로젝트 설명 문서
+├── requirements.txt          # 필요한 라이브러리 목록 (pygame 등)
+├── .gitignore                # Git에서 무시할 파일들 (.pyc, __pycache__ 등)
+└── LICENSE                   # (선택) MIT 라이선스 등 오픈소스 라이선스
+
 
