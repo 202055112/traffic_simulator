@@ -233,7 +233,7 @@ def get_actual_crossroads():
 
     return [(r, c) for r in horizontal_roads for c in vertical_roads if road_map[r][c] == 1]
 
-# ... (생략된 상단 import 및 설정 부분 동일)
+
 
 def generate_intersections(n):
     global intersections, road_map
@@ -270,7 +270,7 @@ def generate_intersections(n):
         for c in selected_cols:
             intersections.append(Intersection(r, c))
 
-# ... (이외 코드는 모두 동일, 아래 루프 포함)
+
 
 
 
