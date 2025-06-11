@@ -1,14 +1,18 @@
-version: "3.8"
+version: "3.8"  # 도커 컴포즈 파일 버전 지정
 
 services:
-  traffic_simulator:
-    build: .
-    container_name: traffic_simulator
-    environment:
-      - DISPLAY=${DISPLAY}
-      - SDL_VIDEODRIVER=x11
-    volumes:
-      - .:/app
-    network_mode: "host"
-    stdin_open: true
-    tty: true
+  traffic_simulator:  # 서비스 이름 (컨테이너 이름과도 관련)
+    build: .  # 현재 디렉토리에서 Dockerfile을 찾아 이미지 빌드
+    container_name: traffic_simulator  # 컨테이너 이름 지정
+    environment:  # 컨테이너 내부 환경 변수 설정
+      - DISPLAY=${DISPLAY}  # 호스트의 DISPLAY 환경 변수 전달 (X11 GUI용)
+      - SDL_VIDEODRIVER=x11  # SDL 라이브러리에 X11 디스플레이 드라이버 사용 설정
+      - XAUTHORITY=/tmp/.docker.xauth  # X11 인증 파일 위치 지정 (컨테이너 내부 경로)
+    volumes:  # 호스트와 컨테이너 간 디렉토리/파일 공유 설정
+      - .:/app  # 현재 폴더(.)를 컨테이너 내 /app 폴더에 마운트
+      - /tmp/.X11-unix:/tmp/.X11-unix  # X11 소켓 공유 (GUI 출력용)
+      - ~/.Xauthority:/tmp/.docker.xauth:ro  # X 인증 파일 공유 (읽기 전용)
+    network_mode: "host"  # 컨테이너가 호스트 네트워크와 동일한 네트워크 인터페이스를 사용하도록 설정
+    stdin_open: true  # 컨테이너 실행 중에 표준 입력 활성화 (대화형용)
+    tty: true  # 터미널 할당 (대화형 쉘 사용 시 필요)
+    command: ["python3", "Traffic Simulator.py"]  # 컨테이너 시작 시 실행할 명령어 및 인자 (파이썬 실행)
