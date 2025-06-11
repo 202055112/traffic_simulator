@@ -91,6 +91,8 @@ class Intersection:
     def get_light_state(self, direction):
         return self.light.get_state(direction)
 
+CAR_COLORS = [(0, 255, 0), (0, 0, 255),(255, 255, 0)]
+
 class Car:
     def __init__(self, row, col, direction):
         self.row = row
@@ -103,6 +105,7 @@ class Car:
         self.height = 10
         self.speed = 1
         self.waiting = False
+        self.color = random.choice(CAR_COLORS)
 
     def is_too_close(self, other):
         if self.direction != other.direction:
@@ -162,7 +165,7 @@ class Car:
 
     def draw(self):
         if 0 <= self.x < WIDTH and 0 <= self.y < HEIGHT:
-            pygame.draw.rect(screen, CAR_COLOR, (self.x, self.y, self.width, self.height))
+            pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
 
     def is_off_screen(self):
         return not (0 <= self.x < WIDTH and 0 <= self.y < HEIGHT)
@@ -198,7 +201,7 @@ class Car:
 
     def draw(self):
         if 0 <= self.x < WIDTH and 0 <= self.y < HEIGHT:
-            pygame.draw.rect(screen, CAR_COLOR, (self.x, self.y, self.width, self.height))
+            pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
 
     def is_off_screen(self):
         return not (0 <= self.x < WIDTH and 0 <= self.y < HEIGHT)
